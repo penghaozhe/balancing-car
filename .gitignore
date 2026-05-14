@@ -1,0 +1,6 @@
+.settings/
+Core/Starup
+Drivers/
+Debug/
+Middlewares/*
+STM32F429ZGTX*

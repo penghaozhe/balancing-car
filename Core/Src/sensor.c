@@ -1,0 +1,89 @@
+#include"sensor.h"
+#include"sensorConfig.h"
+#include"i2c.h"
+#include<math.h>
+
+#define GYRO_LSB_PER_DPS  131.0f   /* ±250°/s range */
+
+static void MPU6050_read(MPU6050Data_T* data);
+static void Encoder_read(EncData_T* data);
+
+void MPU6050_Init(void)
+{
+	uint8_t val;
+
+	/* Wake up device (clear sleep bit) */
+	val = 0x00;
+	HAL_I2C_Mem_Write(&hi2c2, MPU6050_ADDR, 0x6B, I2C_MEMADD_SIZE_8BIT, &val, 1, 100);
+
+	/* Gyro: ±250°/s */
+	val = 0x00;
+	HAL_I2C_Mem_Write(&hi2c2, MPU6050_ADDR, 0x1B, I2C_MEMADD_SIZE_8BIT, &val, 1, 100);
+
+	/* Accel: ±2g */
+	val = 0x00;
+	HAL_I2C_Mem_Write(&hi2c2, MPU6050_ADDR, 0x1C, I2C_MEMADD_SIZE_8BIT, &val, 1, 100);
+}
+
+/* complementary filter state */
+static float pitch_filtered = 0.0f;
+
+static void ComplementaryFilter(MPU6050Data_T *mpu, float dt)
+{
+	/* gyro: integrate angular velocity */
+	float gyro_rate = (float)mpu->gyro_Y / GYRO_LSB_PER_DPS;
+	float pitch_gyro = pitch_filtered + gyro_rate * dt;
+
+	/* accel: absolute angle from gravity vector */
+	float pitch_accel = atan2f((float)mpu->accel_X, (float)mpu->accel_Z)
+	                  * 180.0f / (float)M_PI;
+
+	/* fuse: trust gyro 98%, accel 2% */
+	pitch_filtered = 0.98f * pitch_gyro + 0.02f * pitch_accel;
+}
+
+void collect_data(SensorData_t* data){
+	static const float dt = 0.01f;   /* TIM2 period = 10ms */
+
+	Encoder_read(&data->enc);
+	MPU6050_read(&data->mpu);
+
+	ComplementaryFilter(&data->mpu, dt);
+	data->pitch = pitch_filtered;
+}
+
+static void MPU6050_read(MPU6050Data_T* data){
+	uint8_t buf[14];
+	HAL_I2C_Mem_Read(&hi2c2, MPU6050_ADDR, 0x3B, I2C_MEMADD_SIZE_8BIT, buf, 14, 100);
+
+	 data->accel_X = (buf[0] << 8) | buf[1];
+	data->accel_Y = (buf[2] << 8) | buf[3];
+	data->accel_Z = (buf[4] << 8) | buf[5];
+	data->gyro_X = (buf[8] << 8) | buf[9];
+	data->gyro_Y = (buf[10] << 8) | buf[11];
+	data->gyro_Z = (buf[12] << 8) | buf[13];
+}
+
+
+static void Encoder_read(EncData_T* data){
+	data->enc_L=(int16_t)__HAL_TIM_GET_COUNTER(&Enc_TIM_L);
+	data->enc_R=(int16_t)__HAL_TIM_GET_COUNTER(&Enc_TIM_R);
+
+	/* clear the timer so we can get the increment directly */
+	__HAL_TIM_SET_COUNTER(&Enc_TIM_L,0);
+	__HAL_TIM_SET_COUNTER(&Enc_TIM_R,0);
+}
+
+void CS100A_Trigger(void)
+{
+	HAL_GPIO_WritePin(CS100A_TRIG_GPIO_Port, CS100A_TRIG_Pin, GPIO_PIN_RESET);
+	for (volatile uint32_t d = 0; d < 80; d++) { __NOP(); }
+	HAL_GPIO_WritePin(CS100A_TRIG_GPIO_Port, CS100A_TRIG_Pin, GPIO_PIN_SET);
+}
+
+float CS100A_EchoWidth_to_mm(uint32_t echo_width)
+{
+	/* TIM8 @ 16 MHz, 1 tick = 62.5 ns
+	   sound ≈ 343 m/s round-trip → 1 tick = 0.0107 mm */
+	return (float)echo_width * 0.0107f;
+}

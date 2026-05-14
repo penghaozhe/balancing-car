@@ -1,0 +1,32 @@
+/*
+ * pid.h
+ *
+ *  Created on: 2026 4 /2
+ *      Author: 35973
+ */
+
+#ifndef INC_PID_H_
+#define INC_PID_H_
+
+
+typedef struct Pid_t{
+	/* ===== Config (read-only after init) ===== */
+		float Kp, Ki, Kd;
+	    float integral_limit;          // |integral| clamp
+	    float output_max, output_min;  // output clamp range
+
+	    /* ===== State (runtime, changes every update) ===== */
+	    float integral;
+	    float prev_error;
+	    float output;	/*only suggestion, not real output motor drive*/
+
+}Pid_t;
+
+void Motor1Pid_Init(Pid_t* pid);
+void Motor2Pid_Init(Pid_t* pid);
+void AnglePid_Init(Pid_t* pid);
+void Pid_Reset(Pid_t* pid);
+float Pid_Update(Pid_t* pid,float setpoint,float measurement, float dt_sec);
+
+
+#endif /* INC_PID_H_ */
