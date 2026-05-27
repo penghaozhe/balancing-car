@@ -21,6 +21,7 @@
 #include "cmsis_os.h"
 #include "dma.h"
 #include "i2c.h"
+#include "spi.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
@@ -69,16 +70,19 @@ void MX_FREERTOS_Init(void);
 static void System_Init(void)
 {
 	MPU6050_Init();
+	MPU6050_CalibratePitch();
 	Robot_Init();
 	Vision_Init();
 	Wifi_Init();
 
-	HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
+	HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
 	HAL_TIM_Encoder_Start(&htim5, TIM_CHANNEL_ALL);
 	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, PWM_PERIOD / 2);
 	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, PWM_PERIOD / 2);
 	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
 	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
+	HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_1);
+	HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_2);
 	HAL_TIM_IC_Start_IT(&htim8, TIM_CHANNEL_1);
 	HAL_TIM_Base_Start_IT(&htim2);
 
@@ -118,17 +122,18 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_TIM2_Init();
-  MX_TIM3_Init();
   MX_TIM5_Init();
   MX_USART3_UART_Init();
   MX_USART6_UART_Init();
   MX_I2C2_Init();
   MX_TIM1_Init();
   MX_TIM8_Init();
+  MX_TIM4_Init();
+  MX_SPI4_Init();
   /* USER CODE BEGIN 2 */
 
-  System_Init();
 
+  System_Init();
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -213,7 +218,7 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 
 /**
   * @brief  Period elapsed callback in non blocking mode
-  * @note   This function is called  when TIM4 interrupt took place, inside
+  * @note   This function is called  when TIM6 interrupt took place, inside
   * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
   * a global variable "uwTick" used as application time base.
   * @param  htim : TIM handle
@@ -224,7 +229,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   /* USER CODE BEGIN Callback 0 */
 
   /* USER CODE END Callback 0 */
-  if (htim->Instance == TIM4)
+  if (htim->Instance == TIM6)
   {
     HAL_IncTick();
   }

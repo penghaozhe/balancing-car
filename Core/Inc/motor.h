@@ -25,7 +25,7 @@ typedef enum{
 
 /* ===== Motion command (app layer → driver layer) ===== */
 typedef struct Move_Cmd{
-	int32_t v;      /* linear speed, encoder counts/s */
+	float v;        /* linear speed, encoder counts/s */
 	int32_t turn;   /* differential speed, encoder counts/s */
 }Move_Cmd;
 

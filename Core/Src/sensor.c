@@ -27,11 +27,33 @@ void MPU6050_Init(void)
 
 /* complementary filter state */
 static float pitch_filtered = 0.0f;
+static float gyro_bias_Y = 0.0f;   /* °/s, calibrated at boot */
+
+void MPU6050_CalibratePitch(void)
+{
+#define CALIB_SAMPLES 100
+	float ax_sum = 0.0f, az_sum = 0.0f, gy_sum = 0.0f;
+	MPU6050Data_T raw;
+
+	for (int i = 0; i < CALIB_SAMPLES; i++) {
+		MPU6050_read(&raw);
+		ax_sum += (float)raw.accel_X;
+		az_sum += (float)raw.accel_Z;
+		gy_sum += (float)raw.gyro_Y;
+		HAL_Delay(2);
+	}
+
+	gyro_bias_Y = (gy_sum / CALIB_SAMPLES) / GYRO_LSB_PER_DPS;
+
+	float ax = ax_sum / CALIB_SAMPLES;
+	float az = az_sum / CALIB_SAMPLES;
+	pitch_filtered = atan2f(ax, az) * 180.0f / (float)M_PI;
+}
 
 static void ComplementaryFilter(MPU6050Data_T *mpu, float dt)
 {
-	/* gyro: integrate angular velocity */
-	float gyro_rate = (float)mpu->gyro_Y / GYRO_LSB_PER_DPS;
+	/* gyro: integrate angular velocity, bias subtracted */
+	float gyro_rate = (float)mpu->gyro_Y / GYRO_LSB_PER_DPS - gyro_bias_Y;
 	float pitch_gyro = pitch_filtered + gyro_rate * dt;
 
 	/* accel: absolute angle from gravity vector */
@@ -42,12 +64,14 @@ static void ComplementaryFilter(MPU6050Data_T *mpu, float dt)
 	pitch_filtered = 0.98f * pitch_gyro + 0.02f * pitch_accel;
 }
 
+/* Called from TIM2 ISR: encoder only (fast, no blocking I2C) */
 void collect_data(SensorData_t* data){
-	static const float dt = 0.01f;   /* TIM2 period = 10ms */
-
 	Encoder_read(&data->enc);
-	MPU6050_read(&data->mpu);
+}
 
+/* Called from Motor Task thread: I2C read + filter (slow, blocking OK in thread) */
+void Sensor_Update(SensorData_t* data, float dt){
+	MPU6050_read(&data->mpu);
 	ComplementaryFilter(&data->mpu, dt);
 	data->pitch = pitch_filtered;
 }
@@ -66,12 +90,8 @@ static void MPU6050_read(MPU6050Data_T* data){
 
 
 static void Encoder_read(EncData_T* data){
-	data->enc_L=(int16_t)__HAL_TIM_GET_COUNTER(&Enc_TIM_L);
-	data->enc_R=(int16_t)__HAL_TIM_GET_COUNTER(&Enc_TIM_R);
-
-	/* clear the timer so we can get the increment directly */
-	__HAL_TIM_SET_COUNTER(&Enc_TIM_L,0);
-	__HAL_TIM_SET_COUNTER(&Enc_TIM_R,0);
+	data->enc_L = (uint16_t)__HAL_TIM_GET_COUNTER(&Enc_TIM_L);
+	data->enc_R = (uint16_t)__HAL_TIM_GET_COUNTER(&Enc_TIM_R);
 }
 
 void CS100A_Trigger(void)
