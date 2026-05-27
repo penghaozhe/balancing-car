@@ -86,7 +86,7 @@ static void System_Init(void)
 	HAL_TIM_IC_Start_IT(&htim8, TIM_CHANNEL_1);
 	HAL_TIM_Base_Start_IT(&htim2);
 
-	MotorTask_Create();
+
 }
 
 /* USER CODE END 0 */

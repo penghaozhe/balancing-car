@@ -5,8 +5,8 @@
 #include"global_def.h"
 #include"pidConfig.h"
 
-#define DEADZONE_DUTY    10   /* min |duty|% to overcome static friction */
-#define COAST_THRESHOLD  5    /* |duty%| below this → cut MOE, motor coasts */
+#define DEADZONE_DUTY    5    /* min |duty|% to overcome static friction */
+#define COAST_THRESHOLD  2    /* |duty%| below this → cut MOE, motor coasts */
 
 /*==========Global var Define===========*/
 static volatile uint8_t g_enable=0;
