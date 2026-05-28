@@ -75,6 +75,8 @@ void Error_Handler(void);
 #define PWM_L1_GPIO_Port GPIOB
 #define PWM_R1_Pin GPIO_PIN_14
 #define PWM_R1_GPIO_Port GPIOB
+#define LED_Pin GPIO_PIN_11
+#define LED_GPIO_Port GPIOD
 #define M2_ENC_B_Pin GPIO_PIN_12
 #define M2_ENC_B_GPIO_Port GPIOD
 #define M2_ENC_A_Pin GPIO_PIN_13

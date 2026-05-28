@@ -32,6 +32,7 @@
 #include "sensor.h"
 #include "global_def.h"
 #include "remote_ctrl.h"
+#include<string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -70,6 +71,7 @@ void MX_FREERTOS_Init(void);
 static void System_Init(void)
 {
 	MPU6050_Init();
+	HAL_Delay(500);   /* wait for MPU6050 to wake up after power-on */
 	MPU6050_CalibratePitch();
 	Robot_Init();
 	Vision_Init();
@@ -99,7 +101,10 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
+  /* Cold-boot insurance: explicitly zero globals in case .bss init is flaky */
+  memset(&g_sensor_data, 0, sizeof(g_sensor_data));
+  memset((void*)&g_wifi_cmd, 0, sizeof(g_wifi_cmd));
+  memset((void*)&g_vision_cmd, 0, sizeof(g_vision_cmd));
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/

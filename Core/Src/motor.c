@@ -6,7 +6,7 @@
 #include"pidConfig.h"
 
 #define DEADZONE_DUTY    5    /* min |duty|% to overcome static friction */
-#define COAST_THRESHOLD  2    /* |duty%| below this → cut MOE, motor coasts */
+#define COAST_THRESHOLD  3    /* TEST: 0 = coast disabled */
 
 /*==========Global var Define===========*/
 static volatile uint8_t g_enable=0;
@@ -161,7 +161,7 @@ static void Motor_Task(void* arg){
 			int16_t dL = (int16_t)(data.enc.enc_L - prev_enc_L);
 			int16_t dR = (int16_t)(data.enc.enc_R - prev_enc_R);
 			float measL = -(float)dL / dt;
-			float measR = -(float)dR / dt;
+			float measR = (float)dR / dt;
 			prev_enc_L = data.enc.enc_L;
 			prev_enc_R = data.enc.enc_R;
 
@@ -194,7 +194,7 @@ static void Motor_Task(void* arg){
 			case IDLE:
 				break;
 			case BALANCE:
-				cmd.v = Pid_Update(&g_angle_pid, 0.0f, data.pitch, dt);
+				cmd.v = -Pid_Update(&g_angle_pid, 0.0f, data.pitch, dt);
 				break;
 			case REMOTE:
 				cmd.v    = Pid_Update(&g_angle_pid, 0.0f, data.pitch, dt)
@@ -216,6 +216,7 @@ static void Motor_Task(void* arg){
 
 			Motor_Update(&g_robot, spL, measL, spR, measR, dt);
 
+			HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 
 		    osDelay(10);
 	    }

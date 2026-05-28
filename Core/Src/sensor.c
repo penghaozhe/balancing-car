@@ -11,6 +11,15 @@ static void Encoder_read(EncData_T* data);
 void MPU6050_Init(void)
 {
 	uint8_t val;
+	HAL_StatusTypeDef ret;
+
+	/* Retry WHO_AM_I until device responds (cold-boot can need several attempts) */
+	for (int retry = 0; retry < 20; retry++) {
+		ret = HAL_I2C_Mem_Read(&hi2c2, MPU6050_ADDR, 0x75, I2C_MEMADD_SIZE_8BIT,
+		                       &val, 1, 100);
+		if (ret == HAL_OK && val == 0x68) break;
+		HAL_Delay(10);
+	}
 
 	/* Wake up device (clear sleep bit) */
 	val = 0x00;
