@@ -33,6 +33,7 @@
 #include "global_def.h"
 #include "remote_ctrl.h"
 #include<string.h>
+#include "lcd.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -136,7 +137,8 @@ int main(void)
   MX_TIM4_Init();
   MX_SPI4_Init();
   /* USER CODE BEGIN 2 */
-
+  LCD_Init();
+  LCD_Clear(BLACK);
 
   System_Init();
   /* USER CODE END 2 */
