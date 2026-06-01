@@ -2,11 +2,11 @@
 #include"motor.h"
 #include<stdint.h>
 #include<math.h>
+#include<stdio.h>
 #include"global_def.h"
 #include"pidConfig.h"
+#include"lcd.h"
 
-#define DEADZONE_DUTY    5    /* min |duty|% to overcome static friction */
-#define COAST_THRESHOLD  0    /* TEST: 0 = coast disabled */
 
 /*==========Global var Define===========*/
 static volatile uint8_t g_enable=0;
@@ -96,29 +96,6 @@ static void Motor_Update(Robot_Ctx *r,
 	cL->prev_out = outL;
 	cR->prev_out = outR;
 
-	/*=== Coast: below threshold → cut MOE, motor floats ===*/
-	static uint8_t coasting = 0;
-	int thresh = coasting ? COAST_THRESHOLD + 2 : COAST_THRESHOLD;
-	int should_coast = (outL > -thresh && outL < thresh)
-	                && (outR > -thresh && outR < thresh);
-
-	if (should_coast) {
-		htim1.Instance->BDTR &= ~TIM_BDTR_MOE;
-		coasting = 1;
-		return;
-	}
-	coasting = 0;
-
-	/* restore MOE before driving */
-	if (!(htim1.Instance->BDTR & TIM_BDTR_MOE)) {
-		htim1.Instance->BDTR |= TIM_BDTR_MOE;
-	}
-
-	/* dead-zone compensation: bump sub-threshold duty to min start voltage */
-	if (outL > 0 && outL < DEADZONE_DUTY) outL = DEADZONE_DUTY;
-	if (outL < 0 && outL > -DEADZONE_DUTY) outL = -DEADZONE_DUTY;
-	if (outR > 0 && outR < DEADZONE_DUTY) outR = DEADZONE_DUTY;
-	if (outR < 0 && outR > -DEADZONE_DUTY) outR = -DEADZONE_DUTY;
 
 	PWM_Write(&r->left,outL);
 	PWM_Write(&r->right,outR);
@@ -153,14 +130,30 @@ static void Motor_Task(void* arg){
 			taskENTER_CRITICAL();
 			data = g_sensor_data;
 			taskEXIT_CRITICAL();
+			Sensor_Update(&data, dt);
+
+			/* LCD debug: print pitch every 20 cycles */
+//			static uint32_t lcd_tick = 0;
+//			if (++lcd_tick >= 20) {
+//				lcd_tick = 0;
+//				char buf[32];
+//				sprintf(buf, "Pitch:%.1f", data.pitch);
+//				LCD_ShowString(0, 0, buf, WHITE, BLACK);
+//			}
 
 			/* encoder delta with wrap handling (MPU6050 + pitch already in g_sensor_data from ISR) */
 			int16_t dL = (int16_t)(data.enc.enc_L - prev_enc_L);
 			int16_t dR = (int16_t)(data.enc.enc_R - prev_enc_R);
-			float measL = -(float)dL / dt;
-			float measR = (float)dR / dt;
+			float raw_measL = (float)dL / dt;
+			float raw_measR = -(float)dR / dt;
 			prev_enc_L = data.enc.enc_L;
 			prev_enc_R = data.enc.enc_R;
+
+			/* low-pass filter to suppress 1-count jitter at 200 Hz */
+			#define SPEED_LPF_ALPHA  0.1f
+			static float measL = 0.0f, measR = 0.0f;
+			measL += SPEED_LPF_ALPHA * (raw_measL - measL);
+			measR += SPEED_LPF_ALPHA * (raw_measR - measR);
 
 			/* CS100A trigger: fire every 60ms */
 			if (++cs100a_tick >= 6) {
@@ -191,7 +184,7 @@ static void Motor_Task(void* arg){
 			case IDLE:
 				break;
 			case BALANCE:
-				cmd.v = -Pid_Update(&g_angle_pid, 0.0f, data.pitch, dt);
+				cmd.v = Pid_Update(&g_angle_pid, 0.0f, data.pitch, dt);
 				break;
 			case REMOTE:
 				cmd.v    = Pid_Update(&g_angle_pid, 0.0f, data.pitch, dt)
@@ -219,105 +212,16 @@ static void Motor_Task(void* arg){
 	    }
 }
 
-//static void Motor_Task(void* arg){
-//	static uint32_t last_tick = 0;
-//	static uint8_t cs100a_tick = 0;
-//	static uint16_t prev_enc_L = 0, prev_enc_R = 0;
-//
-//
-//
-//	for (;;)
-//	    {
-//			uint32_t now = osKernelGetTickCount();
-//			float dt = (float)(now - last_tick) * 0.001f;
-//			if (dt <= 0.0f || dt > 0.1f) dt = 0.01f;
-//			last_tick = now;
-//
-//			Robot_State_t state = g_robot.state;
-//			SensorData_t data;
-//			Move_Cmd cmd = {0};
-//			float distance_mm;
-//
-//			taskENTER_CRITICAL();
-//			data = g_sensor_data;
-//			taskEXIT_CRITICAL();
-//
-//			/* MPU6050 + filter in thread context (I2C is blocking, not safe in ISR) */
-//			Sensor_Update(&data, dt);
-//
-//			/* encoder delta with wrap handling (collected by TIM2 ISR) */
-//			int16_t dL = (int16_t)(data.enc.enc_L - prev_enc_L);
-//			int16_t dR = (int16_t)(data.enc.enc_R - prev_enc_R);
-//			float measL = -(float)dL / dt;
-//			float measR = (float)dR / dt;
-//			prev_enc_L = data.enc.enc_L;
-//			prev_enc_R = data.enc.enc_R;
-//
-//			/* CS100A trigger: fire every 60ms */
-//			if (++cs100a_tick >= 6) {
-//				cs100a_tick = 0;
-//				CS100A_Trigger();
-//			}
-//
-//			/* CS100A result: convert and consume */
-//			if (data.csa.echo_ready) {
-//				 distance_mm = CS100A_EchoWidth_to_mm(data.csa.echo_width);
-//			}
-//
-//		/* Mode switch from wifi (payload: 'I','B','R','T') */
-//			if (g_wifi_cmd.mode_request) {
-//				Robot_State_t next = g_robot.state;
-//				switch (g_wifi_cmd.mode_request) {
-//				case 'I': next = IDLE;     break;
-//				case 'B': next = BALANCE;  break;
-//				case 'R': next = REMOTE;   break;
-//				case 'T': next = TRACKING; break;
-//				}
-//				state_change(next);
-//				g_wifi_cmd.mode_request = 0;
-//			}
-//
-//			/* Per-mode command logic */
-//			switch(state){
-//			case IDLE:
-//				break;
-//			case BALANCE:
-//				cmd.v = -Pid_Update(&g_angle_pid, 0.0f, data.pitch, dt);
-//				break;
-//			case REMOTE:
-//				cmd.v    = Pid_Update(&g_angle_pid, 0.0f, data.pitch, dt)
-//				         + g_wifi_cmd.v;
-//				cmd.turn = g_wifi_cmd.turn;
-//				break;
-//			case TRACKING:
-//				cmd.v    = Pid_Update(&g_angle_pid, 1.0f, data.pitch, dt);
-//				cmd.turn = g_vision_cmd.turn;
-//				if (distance_mm > 0 && distance_mm < 200.0f) {
-//					cmd.v = 0;   /* obstacle brake: 20cm */
-//				}
-//				break;
-//			}
-//
-//			/* translate to per-wheel speed and drive */
-//			float spL = (float)(cmd.v - cmd.turn)*SPEED_SP_GAIN;
-//			float spR = (float)(cmd.v + cmd.turn)*SPEED_SP_GAIN;
-//
-//			Motor_Update(&g_robot, spL, measL, spR, measR, dt);
-//
-//			HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
-//
-//		    osDelay(10);
-//	    }
-//}
 
-static void Motor_Task(void* arg){
-	//Test only dont touch it
-	for(;;){
-	PWM_Write(&g_robot.left,30);
-	PWM_Write(&g_robot.right,30);
-	}
-//	osDelay(5000);
-}
+//static void Motor_Task(void* arg){
+//	//Test only dont touch it
+//	for(;;){
+//	PWM_Write(&g_robot.left,5);
+//	PWM_Write(&g_robot.right,5);
+//	osDelay(50);
+//	}
+////	osDelay(5000);
+//}
 /*============Task End================*/
 
 

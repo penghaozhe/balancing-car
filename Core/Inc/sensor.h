@@ -52,6 +52,7 @@ typedef struct SensorData_t{
 void MPU6050_Init(void);
 void MPU6050_CalibratePitch(void);
 void collect_data(SensorData_t*);
+void Sensor_Update(SensorData_t*, float dt);
 void CS100A_Trigger(void);
 float CS100A_EchoWidth_to_mm(uint32_t echo_width);
 //Timer cb ,define at main.c

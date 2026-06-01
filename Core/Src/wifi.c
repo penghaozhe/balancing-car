@@ -47,7 +47,7 @@ void Wifi_Init(void)
 	HAL_GPIO_WritePin(ESP8266_RST_GPIO_Port, ESP8266_RST_Pin, GPIO_PIN_RESET);  /* RST low  */
 	HAL_Delay(100);
 	HAL_GPIO_WritePin(ESP8266_RST_GPIO_Port, ESP8266_RST_Pin, GPIO_PIN_SET);    /* RST high */
-	HAL_Delay(2000);   /* wait for ESP8266 Wi-Fi connect + DHCP */
+	HAL_Delay(100);   /* wait for ESP8266 Wi-Fi connect + DHCP */
 
 	UartDma_Init(&g_wifi_uart, &huart3,
 	             dma_buf, frame_buf, WIFI_BUF_SIZE,

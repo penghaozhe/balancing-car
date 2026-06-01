@@ -78,8 +78,13 @@ static void ComplementaryFilter(MPU6050Data_T *mpu, float dt)
 /* Called from TIM2 ISR: encoder + MPU6050 + complementary filter */
 void collect_data(SensorData_t* data){
 	Encoder_read(&data->enc);
+	// MPU6050 + filter moved to Sensor_Update() in thread context
+}
+
+/* Called from Motor Task thread: I2C read + complementary filter */
+void Sensor_Update(SensorData_t* data, float dt){
 	MPU6050_read(&data->mpu);
-	ComplementaryFilter(&data->mpu, SENSOR_DT);
+	ComplementaryFilter(&data->mpu, dt);
 	data->pitch = pitch_filtered;
 }
 
