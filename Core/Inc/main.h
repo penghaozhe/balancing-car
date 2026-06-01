@@ -87,6 +87,8 @@ void Error_Handler(void);
 #define CS100A_ECHO_GPIO_Port GPIOC
 #define CS100A_TRIG_Pin GPIO_PIN_7
 #define CS100A_TRIG_GPIO_Port GPIOC
+#define ESP_IO_Pin GPIO_PIN_9
+#define ESP_IO_GPIO_Port GPIOC
 #define PWM_L2_Pin GPIO_PIN_8
 #define PWM_L2_GPIO_Port GPIOA
 #define PWM_R2_Pin GPIO_PIN_9

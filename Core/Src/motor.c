@@ -6,7 +6,7 @@
 #include"pidConfig.h"
 
 #define DEADZONE_DUTY    5    /* min |duty|% to overcome static friction */
-#define COAST_THRESHOLD  3    /* TEST: 0 = coast disabled */
+#define COAST_THRESHOLD  0    /* TEST: 0 = coast disabled */
 
 /*==========Global var Define===========*/
 static volatile uint8_t g_enable=0;
@@ -154,10 +154,7 @@ static void Motor_Task(void* arg){
 			data = g_sensor_data;
 			taskEXIT_CRITICAL();
 
-			/* MPU6050 + filter in thread context (I2C is blocking, not safe in ISR) */
-			Sensor_Update(&data, dt);
-
-			/* encoder delta with wrap handling (collected by TIM2 ISR) */
+			/* encoder delta with wrap handling (MPU6050 + pitch already in g_sensor_data from ISR) */
 			int16_t dL = (int16_t)(data.enc.enc_L - prev_enc_L);
 			int16_t dR = (int16_t)(data.enc.enc_R - prev_enc_R);
 			float measL = -(float)dL / dt;
@@ -218,16 +215,109 @@ static void Motor_Task(void* arg){
 
 			HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 
-		    osDelay(10);
+		    osDelay(5);
 	    }
 }
 
 //static void Motor_Task(void* arg){
-//	//Test only dont touch it
-//	PWM_Write(&g_robot.left,30);
-//	PWM_Write(&g_robot.right,30);
-//	osDelay(5000);
+//	static uint32_t last_tick = 0;
+//	static uint8_t cs100a_tick = 0;
+//	static uint16_t prev_enc_L = 0, prev_enc_R = 0;
+//
+//
+//
+//	for (;;)
+//	    {
+//			uint32_t now = osKernelGetTickCount();
+//			float dt = (float)(now - last_tick) * 0.001f;
+//			if (dt <= 0.0f || dt > 0.1f) dt = 0.01f;
+//			last_tick = now;
+//
+//			Robot_State_t state = g_robot.state;
+//			SensorData_t data;
+//			Move_Cmd cmd = {0};
+//			float distance_mm;
+//
+//			taskENTER_CRITICAL();
+//			data = g_sensor_data;
+//			taskEXIT_CRITICAL();
+//
+//			/* MPU6050 + filter in thread context (I2C is blocking, not safe in ISR) */
+//			Sensor_Update(&data, dt);
+//
+//			/* encoder delta with wrap handling (collected by TIM2 ISR) */
+//			int16_t dL = (int16_t)(data.enc.enc_L - prev_enc_L);
+//			int16_t dR = (int16_t)(data.enc.enc_R - prev_enc_R);
+//			float measL = -(float)dL / dt;
+//			float measR = (float)dR / dt;
+//			prev_enc_L = data.enc.enc_L;
+//			prev_enc_R = data.enc.enc_R;
+//
+//			/* CS100A trigger: fire every 60ms */
+//			if (++cs100a_tick >= 6) {
+//				cs100a_tick = 0;
+//				CS100A_Trigger();
+//			}
+//
+//			/* CS100A result: convert and consume */
+//			if (data.csa.echo_ready) {
+//				 distance_mm = CS100A_EchoWidth_to_mm(data.csa.echo_width);
+//			}
+//
+//		/* Mode switch from wifi (payload: 'I','B','R','T') */
+//			if (g_wifi_cmd.mode_request) {
+//				Robot_State_t next = g_robot.state;
+//				switch (g_wifi_cmd.mode_request) {
+//				case 'I': next = IDLE;     break;
+//				case 'B': next = BALANCE;  break;
+//				case 'R': next = REMOTE;   break;
+//				case 'T': next = TRACKING; break;
+//				}
+//				state_change(next);
+//				g_wifi_cmd.mode_request = 0;
+//			}
+//
+//			/* Per-mode command logic */
+//			switch(state){
+//			case IDLE:
+//				break;
+//			case BALANCE:
+//				cmd.v = -Pid_Update(&g_angle_pid, 0.0f, data.pitch, dt);
+//				break;
+//			case REMOTE:
+//				cmd.v    = Pid_Update(&g_angle_pid, 0.0f, data.pitch, dt)
+//				         + g_wifi_cmd.v;
+//				cmd.turn = g_wifi_cmd.turn;
+//				break;
+//			case TRACKING:
+//				cmd.v    = Pid_Update(&g_angle_pid, 1.0f, data.pitch, dt);
+//				cmd.turn = g_vision_cmd.turn;
+//				if (distance_mm > 0 && distance_mm < 200.0f) {
+//					cmd.v = 0;   /* obstacle brake: 20cm */
+//				}
+//				break;
+//			}
+//
+//			/* translate to per-wheel speed and drive */
+//			float spL = (float)(cmd.v - cmd.turn)*SPEED_SP_GAIN;
+//			float spR = (float)(cmd.v + cmd.turn)*SPEED_SP_GAIN;
+//
+//			Motor_Update(&g_robot, spL, measL, spR, measR, dt);
+//
+//			HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+//
+//		    osDelay(10);
+//	    }
 //}
+
+static void Motor_Task(void* arg){
+	//Test only dont touch it
+	for(;;){
+	PWM_Write(&g_robot.left,30);
+	PWM_Write(&g_robot.right,30);
+	}
+//	osDelay(5000);
+}
 /*============Task End================*/
 
 

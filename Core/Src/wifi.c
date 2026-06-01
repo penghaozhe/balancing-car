@@ -42,6 +42,13 @@ static void wifi_on_frame(uint8_t *data, uint16_t len)
 
 void Wifi_Init(void)
 {
+	/* Boot sequence: IO(PC9) HIGH = normal run, RST(PC12) release to boot */
+	HAL_GPIO_WritePin(ESP_IO_GPIO_Port, ESP_IO_Pin, GPIO_PIN_SET);              /* GPIO0 high */
+	HAL_GPIO_WritePin(ESP8266_RST_GPIO_Port, ESP8266_RST_Pin, GPIO_PIN_RESET);  /* RST low  */
+	HAL_Delay(100);
+	HAL_GPIO_WritePin(ESP8266_RST_GPIO_Port, ESP8266_RST_Pin, GPIO_PIN_SET);    /* RST high */
+	HAL_Delay(2000);   /* wait for ESP8266 Wi-Fi connect + DHCP */
+
 	UartDma_Init(&g_wifi_uart, &huart3,
 	             dma_buf, frame_buf, WIFI_BUF_SIZE,
 	             wifi_on_frame);
