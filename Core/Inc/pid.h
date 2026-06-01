@@ -18,6 +18,7 @@ typedef struct Pid_t{
 	    /* ===== State (runtime, changes every update) ===== */
 	    float integral;
 	    float prev_error;
+	    float der_filtered;  /* low-pass filtered derivative */
 	    float output;	/*only suggestion, not real output motor drive*/
 
 }Pid_t;
