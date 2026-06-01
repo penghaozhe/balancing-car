@@ -132,14 +132,6 @@ static void Motor_Task(void* arg){
 			taskEXIT_CRITICAL();
 			Sensor_Update(&data, dt);
 
-			/* LCD debug: print pitch every 20 cycles */
-//			static uint32_t lcd_tick = 0;
-//			if (++lcd_tick >= 20) {
-//				lcd_tick = 0;
-//				char buf[32];
-//				sprintf(buf, "Pitch:%.1f", data.pitch);
-//				LCD_ShowString(0, 0, buf, WHITE, BLACK);
-//			}
 
 			/* encoder delta with wrap handling (MPU6050 + pitch already in g_sensor_data from ISR) */
 			int16_t dL = (int16_t)(data.enc.enc_L - prev_enc_L);
