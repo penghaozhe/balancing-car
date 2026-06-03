@@ -85,7 +85,8 @@ void collect_data(SensorData_t* data){
 void Sensor_Update(SensorData_t* data, float dt){
 	MPU6050_read(&data->mpu);
 	ComplementaryFilter(&data->mpu, dt);
-	data->pitch = pitch_filtered;
+	data->pitch    = pitch_filtered;
+	data->gyro_dps = (float)data->mpu.gyro_Y / GYRO_LSB_PER_DPS - gyro_bias_Y;
 }
 
 static void MPU6050_read(MPU6050Data_T* data){

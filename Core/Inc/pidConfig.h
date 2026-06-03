@@ -29,7 +29,7 @@
 // ========== 角度环 PID 参数 ==========
 #define ANGLE_Kp                1.0f
 #define ANGLE_Ki                0.0f
-#define ANGLE_Kd                 0.1f
+#define ANGLE_Kd                 0.3f
 #define ANGLE_INTEGRAL_LIMIT   300.0f
 #define ANGLE_OUTPUT_MAX       50.0f   // 输出：速度设定点 (encoder counts/s)
 #define ANGLE_OUTPUT_MIN      -50.0f

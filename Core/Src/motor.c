@@ -176,14 +176,17 @@ static void Motor_Task(void* arg){
 			case IDLE:
 				break;
 			case BALANCE:
+				g_angle_pid.direct_deriv = -data.gyro_dps;
 				cmd.v = Pid_Update(&g_angle_pid, 0.0f, data.pitch, dt);
 				break;
 			case REMOTE:
+				g_angle_pid.direct_deriv = -data.gyro_dps;
 				cmd.v    = Pid_Update(&g_angle_pid, 0.0f, data.pitch, dt)
 				         + g_wifi_cmd.v;
 				cmd.turn = g_wifi_cmd.turn;
 				break;
 			case TRACKING:
+				g_angle_pid.direct_deriv = -data.gyro_dps;
 				cmd.v    = Pid_Update(&g_angle_pid, 1.0f, data.pitch, dt);
 				cmd.turn = g_vision_cmd.turn;
 				if (distance_mm > 0 && distance_mm < 200.0f) {
@@ -197,6 +200,20 @@ static void Motor_Task(void* arg){
 			float spR = (float)(cmd.v + cmd.turn)*SPEED_SP_GAIN;
 
 			Motor_Update(&g_robot, spL, measL, spR, measR, dt);
+
+//			/* LCD debug: print every 10 cycles (~50ms) */
+//			{	static uint32_t lcd_tick = 0;
+//				if (++lcd_tick >= 10) {
+//					lcd_tick = 0;
+//					char buf[32];
+//					sprintf(buf, "Pitch:%5.1f deg", data.pitch);
+//					LCD_ShowString(0,  0, buf, YELLOW, BLACK);
+//					sprintf(buf, "Gyro:%6.0f d/s", data.gyro_dps);
+//					LCD_ShowString(0, 16, buf, YELLOW, BLACK);
+//					sprintf(buf, "PWML:%4ld PWMR:%4ld", (long)dbg_pwm_l, (long)dbg_pwm_r);
+//					LCD_ShowString(0, 32, buf, WHITE, BLACK);
+//				}
+//			}
 
 			HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 
