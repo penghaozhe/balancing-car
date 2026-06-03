@@ -31,7 +31,7 @@
 // D项直接拿gyro_dps(陀螺仪角速度), 延迟<1ms
 #define ANGLE_Kp                10.0f
 #define ANGLE_Ki                0.0f
-#define ANGLE_Kd                6.0f
+#define ANGLE_Kd                8.0f
 #define ANGLE_INTEGRAL_LIMIT   10.0f
 #define ANGLE_OUTPUT_MAX       80.0f   // 平衡PWM占空比上限(%)
 #define ANGLE_OUTPUT_MIN      -80.0f
