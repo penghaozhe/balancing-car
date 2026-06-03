@@ -22,13 +22,14 @@ float Pid_Update(Pid_t* pid, float setpoint, float measurement, float dt_sec)
         pid->integral += err * dt_sec;
         pid->integral = clampf(pid->integral, -pid->integral_limit, pid->integral_limit);
 
+        #define DER_LPF_ALPHA  0.10f   /* gyro D-term LPF: cutoff ~8Hz@100Hz */
         float der;
         if (pid->use_direct_deriv) {
-            der = pid->direct_deriv;
+            pid->der_filtered += DER_LPF_ALPHA * (pid->direct_deriv - pid->der_filtered);
+            der = pid->der_filtered;
         } else {
             float raw_der = (err - pid->prev_error) / dt_sec;
             pid->prev_error = err;
-            #define DER_LPF_ALPHA  0.40f
             pid->der_filtered += DER_LPF_ALPHA * (raw_der - pid->der_filtered);
             der = pid->der_filtered;
         }

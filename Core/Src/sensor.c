@@ -70,7 +70,7 @@ static void ComplementaryFilter(MPU6050Data_T *mpu, float dt)
 	                  * 180.0f / (float)M_PI;
 
 	/* fuse: trust gyro 98%, accel 2% */
-	pitch_filtered = 0.95f * pitch_gyro + 0.05f * pitch_accel;
+	pitch_filtered = 0.985f * pitch_gyro + 0.015f * pitch_accel;
 }
 
 #define SENSOR_DT  0.005f   /* TIM2 period = 5 ms */

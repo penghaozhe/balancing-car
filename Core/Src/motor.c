@@ -118,13 +118,13 @@ static void Motor_Task(void* arg){
 			prev_enc_R = data.enc.enc_R;
 
 			/* low-pass filter to suppress 1-count jitter at 200 Hz */
-			#define SPEED_LPF_ALPHA  0.1f
+			#define SPEED_LPF_ALPHA  0.03f
 			static float measL = 0.0f, measR = 0.0f;
 			measL += SPEED_LPF_ALPHA * (raw_measL - measL);
 			measR += SPEED_LPF_ALPHA * (raw_measR - measR);
 
 			/* CS100A trigger: fire every 60ms */
-			if (++cs100a_tick >= 6) {
+			if (++cs100a_tick >= 20) {
 				cs100a_tick = 0;
 				CS100A_Trigger();
 			}
@@ -195,7 +195,7 @@ static void Motor_Task(void* arg){
 
 			HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 
-		    osDelay(5);
+		    osDelay(2);
 	    }
 }
 /*============Task End================*/
