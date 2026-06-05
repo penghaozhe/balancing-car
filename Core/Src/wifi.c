@@ -18,7 +18,7 @@ static void wifi_on_frame(uint8_t *data, uint16_t len)
 	/* MODE_SHIFT: HEADER | TYPE | MODE | CHK | END (5 bytes)*/
 	if(len!=6 && len!=5)
 		return;
-	if (data[0] != HEADER || data[5] != END)
+	if (data[0] != HEADER || data[len - 1] != END)
 		return;
 	switch(data[1]){
 		case TYPE_MOVE: {
@@ -42,14 +42,24 @@ static void wifi_on_frame(uint8_t *data, uint16_t len)
 
 void Wifi_Init(void)
 {
+	/* Pull-up PC11 to prevent floating when ESP TX is Hi-Z during reset */
+	GPIO_InitTypeDef gpio = {0};
+	gpio.Pin       = ESP8266_RX_Pin;
+	gpio.Mode      = GPIO_MODE_AF_PP;
+	gpio.Pull      = GPIO_PULLUP;
+	gpio.Speed     = GPIO_SPEED_FREQ_VERY_HIGH;
+	gpio.Alternate = GPIO_AF7_USART3;
+	HAL_GPIO_Init(ESP8266_RX_GPIO_Port, &gpio);
+
+	/* Start DMA listener FIRST, so ESP boot messages are captured */
+	UartDma_Init(&g_wifi_uart, &huart3,
+	             dma_buf, frame_buf, WIFI_BUF_SIZE,
+	             wifi_on_frame);
+
 	/* Boot sequence: IO(PC9) HIGH = normal run, RST(PC12) release to boot */
 	HAL_GPIO_WritePin(ESP_IO_GPIO_Port, ESP_IO_Pin, GPIO_PIN_SET);              /* GPIO0 high */
 	HAL_GPIO_WritePin(ESP8266_RST_GPIO_Port, ESP8266_RST_Pin, GPIO_PIN_RESET);  /* RST low  */
 	HAL_Delay(100);
 	HAL_GPIO_WritePin(ESP8266_RST_GPIO_Port, ESP8266_RST_Pin, GPIO_PIN_SET);    /* RST high */
-	HAL_Delay(2000);   /* wait for ESP8266 Wi-Fi connect + DHCP */
-
-	UartDma_Init(&g_wifi_uart, &huart3,
-	             dma_buf, frame_buf, WIFI_BUF_SIZE,
-	             wifi_on_frame);
+	HAL_Delay(3000);   /* ESP8266 cold boot: ROM + AT fw + WiFi + DHCP */
 }

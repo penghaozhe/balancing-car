@@ -5,6 +5,7 @@
 
 static UartDma_Rx *g_rx[MAX_UART_RX];
 static uint8_t     g_rx_cnt;
+static volatile HAL_StatusTypeDef g_dma_rc;
 
 void UartDma_Init(UartDma_Rx *u, UART_HandleTypeDef *huart,
                   uint8_t *dma_buf, uint8_t *frame_buf, uint16_t buf_size,
@@ -19,7 +20,11 @@ void UartDma_Init(UartDma_Rx *u, UART_HandleTypeDef *huart,
 	if (g_rx_cnt < MAX_UART_RX)
 		g_rx[g_rx_cnt++] = u;
 
-	HAL_UARTEx_ReceiveToIdle_DMA(huart, dma_buf, buf_size);
+	g_dma_rc = HAL_UARTEx_ReceiveToIdle_DMA(huart, dma_buf, buf_size);
+	if (g_dma_rc != HAL_OK) {
+		__disable_irq();
+		while (1) {}
+	}
 }
 
 static void UartDma_OnRxEvent(UART_HandleTypeDef *huart, uint16_t len)
