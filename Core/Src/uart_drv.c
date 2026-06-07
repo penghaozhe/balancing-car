@@ -5,7 +5,6 @@
 
 static UartDma_Rx *g_rx[MAX_UART_RX];
 static uint8_t     g_rx_cnt;
-static volatile HAL_StatusTypeDef g_dma_rc;
 
 void UartDma_Init(UartDma_Rx *u, UART_HandleTypeDef *huart,
                   uint8_t *dma_buf, uint8_t *frame_buf, uint16_t buf_size,
@@ -20,25 +19,15 @@ void UartDma_Init(UartDma_Rx *u, UART_HandleTypeDef *huart,
 	if (g_rx_cnt < MAX_UART_RX)
 		g_rx[g_rx_cnt++] = u;
 
-	/*
-	 * Clear stale FE/NE flags before starting DMA+IDLE.
-	 *
-	 * HAL_UART_IRQHandler processes errors BEFORE IDLE (line 2376 vs 2482).
-	 * If FE or NE is pending when EIE is enabled by UART_Start_Receive_DMA,
-	 * the error handler calls UART_EndRxTransfer → clears IDLEIE + DMAR →
-	 * HAL_DMA_Abort_IT → the IDLE that arrives with the same frame is lost
-	 * and HAL_UARTEx_RxEventCallback never fires.
-	 *
-	 * Read SR then DR to clear FE/NE.  (TXE/TC/ORE/IDLE are cleared by HAL.)
-	 */
+	/* Clear stale FE/NE before starting DMA to avoid IDLE being lost */
 	{
 		uint32_t sr = huart->Instance->SR;
 		if (sr & (USART_SR_FE | USART_SR_NE))
 			(void)huart->Instance->DR;
 	}
 
-	g_dma_rc = HAL_UARTEx_ReceiveToIdle_DMA(huart, dma_buf, buf_size);
-	if (g_dma_rc != HAL_OK) {
+	HAL_StatusTypeDef rc = HAL_UARTEx_ReceiveToIdle_DMA(huart, dma_buf, buf_size);
+	if (rc != HAL_OK) {
 		__disable_irq();
 		while (1) {}
 	}
