@@ -42,24 +42,31 @@ static void wifi_on_frame(uint8_t *data, uint16_t len)
 
 void Wifi_Init(void)
 {
-	/* Pull-up PC11 to prevent floating when ESP TX is Hi-Z during reset */
-	GPIO_InitTypeDef gpio = {0};
-	gpio.Pin       = ESP8266_RX_Pin;
-	gpio.Mode      = GPIO_MODE_AF_PP;
-	gpio.Pull      = GPIO_PULLUP;
-	gpio.Speed     = GPIO_SPEED_FREQ_VERY_HIGH;
-	gpio.Alternate = GPIO_AF7_USART3;
-	HAL_GPIO_Init(ESP8266_RX_GPIO_Port, &gpio);
-
-	/* Start DMA listener FIRST, so ESP boot messages are captured */
-	UartDma_Init(&g_wifi_uart, &huart3,
-	             dma_buf, frame_buf, WIFI_BUF_SIZE,
-	             wifi_on_frame);
+	/*
+	 * Pull-up PC11 (GPIOC PUPDR[23:22] = 01).
+	 * HAL_UART_MspInit already set MODER/OSPEEDR/AFR; only PUPDR needs
+	 * changing.  Direct register write avoids re-initialising MODER on a
+	 * live USART3 pin.
+	 */
+	GPIOC->PUPDR = (GPIOC->PUPDR & ~(3UL << 22)) | (1UL << 22);
 
 	/* Boot sequence: IO(PC9) HIGH = normal run, RST(PC12) release to boot */
 	HAL_GPIO_WritePin(ESP_IO_GPIO_Port, ESP_IO_Pin, GPIO_PIN_SET);              /* GPIO0 high */
 	HAL_GPIO_WritePin(ESP8266_RST_GPIO_Port, ESP8266_RST_Pin, GPIO_PIN_RESET);  /* RST low  */
 	HAL_Delay(100);
 	HAL_GPIO_WritePin(ESP8266_RST_GPIO_Port, ESP8266_RST_Pin, GPIO_PIN_SET);    /* RST high */
-	HAL_Delay(3000);   /* ESP8266 cold boot: ROM + AT fw + WiFi + DHCP */
+	HAL_Delay(3000);   /* ESP8266 cold boot: ROM (74880 baud) + fw + WiFi + DHCP */
+
+	/*
+	 * Start DMA AFTER ESP is booted and quiet.
+	 *
+	 * ESP ROM bootloader outputs at 74880 baud; if DMA were running, USART3
+	 * would misread this as 115200 -> massive FE/NE -> HAL error ISR kills
+	 * DMA before IDLE can fire (HAL_UART_IRQHandler line 2376 vs 2482).
+	 *
+	 * UartDma_Init clears any stale FE/NE before enabling DMA (uart_drv.c).
+	 */
+	UartDma_Init(&g_wifi_uart, &huart3,
+	             dma_buf, frame_buf, WIFI_BUF_SIZE,
+	             wifi_on_frame);
 }
