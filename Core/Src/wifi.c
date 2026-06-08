@@ -49,8 +49,8 @@ void Wifi_Init(void)
 	HAL_GPIO_WritePin(ESP_IO_GPIO_Port, ESP_IO_Pin, GPIO_PIN_SET);
 	HAL_GPIO_WritePin(ESP8266_RST_GPIO_Port, ESP8266_RST_Pin, GPIO_PIN_RESET);
 	HAL_Delay(100);
-	HAL_GPIO_WritePin(ESP8266_RST_GPIO_Port, ESP8266_RST_Pin, GPIO_PIN_SET);
-	HAL_Delay(3000);
+	HAL_GPIO_WritePin(ESP8266_RST_GPIO_Port, ESP8266_RST_Pin, GPIO_PIN_SET);    /* RST high */
+	HAL_Delay(100);   /* wait for ESP8266 Wi-Fi connect + DHCP */
 
 	/* Start DMA after ESP is booted to avoid baud mismatch noise */
 	UartDma_Init(&g_wifi_uart, &huart3,
